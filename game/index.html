@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solara Bay — open-world crime on the Leonida coast</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1e3a; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #hud { position: fixed; inset: 0; pointer-events: none; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #eef1f5; font-size: 13px; }
+  .panel { background: rgba(10, 14, 24, 0.72); border: 1px solid rgba(255, 196, 107, 0.28); border-radius: 8px; padding: 8px 10px; }
+  .muted { color: #8b93a3; }
+  .bar { height: 6px; background: #232a38; border-radius: 3px; overflow: hidden; }
+  .bar .fill { height: 100%; border-radius: 3px; }
+  /* Top-left: the mission card. */
+  #mission-card { position: absolute; top: 12px; left: 12px; width: 300px; }
+  #chapter { font-size: 11px; letter-spacing: 1px; color: #ffc46b; font-weight: 700; }
+  #mission-name { font-size: 21px; font-weight: 800; letter-spacing: 0.5px; margin: 2px 0 6px; }
+  .stage-row { display: flex; align-items: center; gap: 8px; }
+  #stage-label { background: #ffc46b; color: #14100a; font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 4px; }
+  #timer { background: #e5484d; color: #fff; font-weight: 800; font-size: 13px; padding: 2px 8px; border-radius: 4px; margin-left: auto; }
+  #objective { font-weight: 700; margin: 6px 0 2px; }
+  #next-line { color: #8b93a3; font-size: 12px; }
+  #crew-chips { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .chip { background: rgba(255, 196, 107, 0.16); border: 1px solid rgba(255, 196, 107, 0.4); border-radius: 5px; padding: 3px 6px; font-size: 11px; font-weight: 600; }
+  .chip b { color: #00e5ff; }
+  /* Top-center: controls hint + clock. */
+  #top-center { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); text-align: center; color: #c8cdd8; font-size: 12px; text-shadow: 0 1px 3px #000; }
+  #clock { font-size: 15px; font-weight: 700; color: #eef1f5; }
+  /* Top-right: cash, wanted, rank. */
+  #top-right { position: absolute; top: 12px; right: 12px; text-align: right; }
+  #cash { font-size: 30px; font-weight: 800; color: #3ddc84; text-shadow: 0 1px 4px #000; }
+  #wanted { font-size: 19px; color: #ffc46b; letter-spacing: 3px; text-shadow: 0 1px 4px #000; }
+  #insight { display: inline-block; background: #ff2e88; color: #fff; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-top: 4px; }
+  #airunit { display: inline-block; background: #e5484d; color: #fff; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-top: 4px; }
+  #rank-line { margin-top: 5px; font-weight: 700; font-size: 12px; }
+  #rank-line b { background: #00e5ff; color: #06222b; padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+  #radio { margin-top: 8px; color: #c8cdd8; font-size: 12px; text-shadow: 0 1px 3px #000; }
+  /* Left: police panel, district card, minimap. */
+  #police-panel { position: absolute; top: 218px; left: 12px; width: 300px; }
+  #police-panel .head { display: flex; justify-content: space-between; color: #ff7a33; font-weight: 800; letter-spacing: 1px; font-size: 12px; }
+  .unit { display: flex; gap: 7px; align-items: center; padding: 3px 0; font-size: 12px; }
+  .unit .dot { width: 8px; height: 8px; border-radius: 50%; background: #5aa2ff; flex: none; }
+  .unit .role { font-size: 10px; font-weight: 800; padding: 1px 5px; border-radius: 3px; color: #fff; }
+  .role.ramming { background: #e5484d; } .role.pursuit { background: #ff7a33; } .role.flanking { background: #ffb347; color: #14100a; }
+  .role.roadblock { background: #7b2fbe; } .role.spotlight { background: #00e5ff; color: #06222b; } .role.firing { background: #c81e4a; }
+  .unit .dist { margin-left: auto; color: #c8cdd8; }
+  #feed { margin-top: 6px; color: #8b93a3; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 6px; }
+  #district-card { position: absolute; top: 404px; left: 12px; width: 300px; }
+  #district-name { font-size: 17px; font-weight: 800; }
+  #district-label { color: #c8cdd8; font-size: 12px; }
+  #hint-line { color: #ffc46b; font-size: 11px; letter-spacing: 0.5px; margin-top: 5px; font-weight: 700; }
+  #minimap-wrap { position: absolute; left: 12px; bottom: 64px; }
+  #minimap { border-radius: 50%; display: block; box-shadow: 0 0 0 2px rgba(255, 196, 107, 0.6), 0 4px 18px rgba(0,0,0,0.6); }
+  #vitals { position: absolute; left: 12px; bottom: 12px; width: 170px; font-size: 11px; }
+  #vitals .row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  #vitals .bar { flex: 1; }
+  /* Right: weapon slots, crew cards. */
+  #weapons { position: absolute; top: 200px; right: 12px; display: flex; gap: 6px; }
+  .weapon { width: 56px; text-align: center; background: rgba(10, 14, 24, 0.72); border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 6px 2px; }
+  .weapon.sel { border-color: #ffc46b; box-shadow: 0 0 0 1px #ffc46b; }
+  .weapon .wnum { display: block; font-size: 10px; color: #8b93a3; }
+  .weapon b { display: block; font-size: 14px; }
+  .weapon span { display: block; font-size: 9px; color: #8b93a3; }
+  .weapon i { display: block; font-style: normal; font-size: 11px; color: #ffc46b; font-weight: 700; }
+  #crew-cards { position: absolute; top: 300px; right: 12px; width: 210px; display: flex; flex-direction: column; gap: 6px; }
+  .crew-card { display: flex; align-items: center; gap: 8px; background: rgba(10, 14, 24, 0.72); border: 1px solid rgba(255,255,255,0.16); border-radius: 6px; padding: 6px 8px; }
+  .crew-card .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; flex: none; }
+  .crew-card b { display: block; font-size: 12px; }
+  .crew-card span { font-size: 11px; color: #8b93a3; }
+  .crew-card .key { margin-left: auto; background: #232a38; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 700; }
+  /* Bottom-right: speed + vehicle. */
+  #speedo { position: absolute; right: 16px; bottom: 14px; text-align: right; text-shadow: 0 1px 4px #000; }
+  #speed { font-size: 52px; font-weight: 800; line-height: 0.9; }
+  #speedo .unit { font-size: 13px; color: #c8cdd8; }
+  #vehicle { font-size: 15px; font-weight: 800; color: #3ddc84; }
+  #condition { font-size: 12px; color: #c8cdd8; }
+  #cond-bar { width: 180px; margin-left: auto; margin-top: 3px; }
+  /* Bottom-center: dialogue. */
+  #dialogue { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: 460px; display: flex; gap: 10px; align-items: flex-start; }
+  #dlg-ava { width: 42px; height: 42px; border-radius: 6px; background: #3b6ea5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex: none; }
+  #dlg-who { font-size: 11px; color: #00e5ff; font-weight: 700; letter-spacing: 0.5px; }
+  #dlg-text { font-size: 14px; line-height: 1.35; margin-top: 2px; }
+  /* Meta screen. */
+  #meta { position: fixed; inset: 0; display: none; align-items: flex-start; justify-content: center; background: rgba(6, 10, 20, 0.94); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #eef1f5; overflow: auto; z-index: 5; }
+  .meta-inner { width: 1180px; max-width: 96vw; padding: 14px 0 20px; transform: scale(0.85); transform-origin: top center; }
+  .meta-head { display: flex; align-items: baseline; gap: 22px; border-bottom: 2px solid #ffc46b; padding-bottom: 10px; }
+  .meta-title { font-size: 30px; font-weight: 800; color: #ffc46b; letter-spacing: 1px; }
+  .meta-tabs { display: flex; gap: 16px; font-size: 13px; color: #8b93a3; font-weight: 700; }
+  .meta-tabs .on { background: #e5484d; color: #fff; padding: 3px 10px; border-radius: 4px; }
+  .meta-cash { margin-left: auto; font-size: 26px; font-weight: 800; color: #3ddc84; }
+  .meta-cols { display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 14px; margin-top: 14px; }
+  .meta-col .panel { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+  .panel-title { font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #ffc46b; margin-bottom: 8px; }
+  .ring { width: 150px; height: 150px; display: block; margin: 0 auto 8px; }
+  .prog { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 0; }
+  .prog span { width: 130px; flex: none; }
+  .prog .bar { flex: 1; }
+  .prog b { width: 34px; text-align: right; font-size: 11px; }
+  .ratings { display: flex; gap: 6px; }
+  .rate { width: 34px; height: 46px; border: 1px solid #ffc46b; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; }
+  .rate b { font-size: 15px; color: #ffc46b; }
+  .rate.todo { border-color: #3a4152; color: #3a4152; } .rate.todo b { color: #3a4152; }
+  .save { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.08); }
+  .save button { margin-left: auto; background: none; border: 1px solid #ffc46b; color: #ffc46b; border-radius: 4px; padding: 3px 10px; font-weight: 700; cursor: pointer; }
+  .district-map { width: 100%; height: auto; display: block; }
+  .map-foot { font-size: 12px; color: #c8cdd8; margin-top: 6px; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .stat b { display: block; font-size: 20px; }
+  .stat span { font-size: 10px; color: #8b93a3; letter-spacing: 0.5px; }
+  .rank-line { font-size: 12px; color: #c8cdd8; margin: 4px 0 6px; }
+  .mech { font-size: 12px; color: #c8cdd8; margin-bottom: 8px; }
+  .shop { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 5px 6px; border-radius: 4px; }
+  .shop.sel { background: rgba(255, 196, 107, 0.18); outline: 1px solid #ffc46b; }
+  .shop .tag { background: #00e5ff; color: #06222b; font-size: 10px; font-weight: 800; padding: 1px 5px; border-radius: 3px; }
+  .shop b { margin-left: auto; color: #3ddc84; }
+  .shop.owned b { color: #8b93a3; }
+  .back { margin-top: 12px; width: 100%; background: #ffc46b; border: none; color: #14100a; font-weight: 800; padding: 9px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  /* Title screen: the world idles behind it until the player starts. */
+  #title-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; text-align: center; z-index: 4; }
+  #title-screen h1 { margin: 0; font-size: 84px; font-weight: 900; letter-spacing: 6px; color: #ffb347; text-shadow: 0 4px 0 #7b2fbe, 0 8px 32px rgba(0,0,0,0.8); }
+  #title-screen .sub { margin-top: 4px; font-size: 17px; letter-spacing: 3px; color: #eef1f5; text-shadow: 0 2px 8px #000; }
+  #title-screen .go { margin-top: 26px; font-size: 15px; font-weight: 800; color: #14100a; background: #ffc46b; padding: 10px 22px; border-radius: 6px; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+  #title-screen .missions { margin-top: 22px; font-size: 13px; color: #c8cdd8; text-shadow: 0 1px 4px #000; line-height: 1.7; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Solara Bay: drive the Lamborghini, lose the heat, take the market"></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+<div id="title-screen">
+  <h1>SOLARA BAY</h1>
+  <div class="sub">OPEN-WORLD CRIME ON THE LEONIDA COAST</div>
+  <div class="go">PRESS SPACE OR CLICK TO START</div>
+  <div class="missions">CH. 1 MARKET SQUEEZE · CH. 3 WRECK THE REGENT · CH. 4 NEON TIDE<br>WASD drive · E enter/exit car · SPACE brake · TAB map</div>
+</div>
+<div id="hud">
+  <div id="mission-card" class="panel">
+    <div id="chapter">CH. 3 · HIGH WATER</div>
+    <div id="mission-name">WRECK THE REGENT</div>
+    <div class="stage-row"><span id="stage-label">STAGE 1/3</span><div class="bar" style="flex:1"><div class="fill" id="stage-fill" style="width:0%;background:#00e5ff"></div></div><span id="timer">0:23</span></div>
+    <div id="objective">Ram the Regent 0/3</div>
+    <div id="next-line">NEXT Lose the heat</div>
+    <div id="crew-chips"></div>
+  </div>
+  <div id="top-center">WASD drive · E enter/exit car · SPACE brake · M mission · TAB map · Z/X/C crew<br><span id="clock">18:45</span></div>
+  <div id="top-right">
+    <div id="cash">$18,450</div>
+    <div id="wanted">★★★★☆</div>
+    <div><span id="insight">IN SIGHT</span> <span id="airunit">AIR UNIT DEPLOYED</span></div>
+    <div id="rank-line"><b>RANK 6</b> FIXER</div>
+    <div class="bar" style="width:180px;margin-left:auto"><div class="fill" id="rp-fill" style="width:75%;background:#00e5ff"></div></div>
+    <div id="rp-line" class="muted" style="font-size:11px">3,900 / 5,200 RP</div>
+    <div id="radio">♪ LUMEN FM 98.6 — Glass Hours — Vela</div>
+  </div>
+  <div id="police-panel" class="panel">
+    <div class="head"><span>SBP RESPONSE · AIR ONE</span><span id="unit-count">6 UNITS</span></div>
+    <div id="police-list"></div>
+    <div id="feed">CORAL-48: shots fired in the Pasaru night market</div>
+  </div>
+  <div id="district-card" class="panel">
+    <div id="district-name">THE STRAND</div>
+    <div id="district-label">Beachfront</div>
+    <div class="stage-row" style="margin-top:5px"><span id="standing-label" style="font-size:11px">NEUTRAL · 52</span><div class="bar" style="flex:1"><div class="fill" id="standing-fill" style="width:52%;background:#3ddc84"></div></div></div>
+    <div id="hint-line">OPEN ROAD, OPEN SKY</div>
+  </div>
+  <div id="minimap-wrap"><canvas id="minimap" width="150" height="150"></canvas></div>
+  <div id="vitals" class="panel">
+    <div class="row"><span>HEALTH</span><div class="bar"><div class="fill" id="health-fill" style="width:76%;background:#3ddc84"></div></div><b id="health-num">76</b></div>
+    <div class="row"><span>ARMOUR</span><div class="bar"><div class="fill" id="armor-fill" style="width:58%;background:#00e5ff"></div></div><b id="armor-num">58</b></div>
+  </div>
+  <div id="weapons"></div>
+  <div id="crew-cards"></div>
+  <div id="speedo">
+    <div><span id="speed">111</span> <span class="unit">KM/H</span></div>
+    <div id="vehicle">RUKAN PELO GT</div>
+    <div id="condition">CONDITION 62% · DENTED</div>
+    <div class="bar" id="cond-bar"><div class="fill" id="cond-fill" style="width:62%;background:#ffc46b"></div></div>
+  </div>
+  <div id="dialogue" class="panel">
+    <div id="dlg-ava">MK</div>
+    <div><div id="dlg-who">MIRA KESANG · Crew · Driver</div><div id="dlg-text">He's making for the pier! Ram the Regent before it reaches the water!</div></div>
+  </div>
+</div>
+<div id="meta"></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
